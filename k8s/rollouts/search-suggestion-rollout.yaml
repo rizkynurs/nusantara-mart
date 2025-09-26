@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: search-suggestion
+  namespace: retail
+spec:
+  replicas: 4
+  selector:
+    matchLabels: { app: search-suggestion }
+  strategy:
+    canary:
+      canaryService: search-suggestion-canary
+      stableService: search-suggestion-stable
+      trafficRouting:
+        istio:
+          virtualService: search-suggestion-vs
+          destinationRule: search-suggestion-dr
+      steps:
+        - setWeight: 5
+        - pause: { duration: 60 }
+        - setWeight: 25
+        - pause: { duration: 120 }
+        - setWeight: 50
+        - pause: { duration: 180 }
+  template:
+    metadata:
+      labels: { app: search-suggestion }
+    spec:
+      containers:
+        - name: search-suggestion
+          image: asia-docker.pkg.dev/PROJECT/nusmart/repo/search-suggestion:REPLACEME_SHA
+          ports: [{ containerPort: 8080, name: http }]
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "400m",  memory: "512Mi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-suggestion-stable
+  namespace: retail
+spec:
+  selector: { app: search-suggestion }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-suggestion-canary
+  namespace: retail
+spec:
+  selector: { rollouts-pod-template-hash: canary }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]

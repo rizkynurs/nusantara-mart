@@ -1,0 +1,15 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: report-aggregator-dr
+  namespace: retail
+spec:
+  host: report-aggregator
+  trafficPolicy:
+    tls: { mode: ISTIO_MUTUAL }
+    outlierDetection: { consecutive5xxErrors: 5, interval: 5s, baseEjectionTime: 30s }
+  subsets:
+    - name: stable
+      labels: { app: report-aggregator }
+    - name: canary
+      labels: { rollouts-pod-template-hash: canary }

@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: order
+  namespace: retail
+spec:
+  replicas: 4
+  selector:
+    matchLabels: { app: order }
+  strategy:
+    canary:
+      canaryService: order-canary
+      stableService: order-stable
+      trafficRouting:
+        istio:
+          virtualService: order-vs
+          destinationRule: order-dr
+      steps:
+        - setWeight: 5
+        - pause: { duration: 60 }
+        - setWeight: 25
+        - pause: { duration: 120 }
+        - setWeight: 50
+        - pause: { duration: 180 }
+  template:
+    metadata:
+      labels: { app: order }
+    spec:
+      containers:
+        - name: order
+          image: asia-docker.pkg.dev/PROJECT/nusmart/repo/order:REPLACEME_SHA
+          ports: [{ containerPort: 8080, name: http }]
+          resources:
+            requests: { cpu: "500m", memory: "512Mi" }
+            limits:   { cpu: "1500m",  memory: "2Gi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-stable
+  namespace: retail
+spec:
+  selector: { app: order }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-canary
+  namespace: retail
+spec:
+  selector: { rollouts-pod-template-hash: canary }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]

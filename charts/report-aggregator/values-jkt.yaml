@@ -1,0 +1,15 @@
+# Overrides for cluster JKT
+image:
+  repository: asia-docker.pkg.dev/PROJECT/nusmart/repo/report-aggregator
+  tag: "REPLACEME_SHA"
+
+resources:
+  requests: { cpu: "100m", memory: "256Mi" }
+  limits:   { cpu: "500m", memory: "1Gi" }
+
+# Example weight hints for canary (consumed by Rollouts via params/annotations if needed)
+rollout:
+  canarySteps:
+    - 5
+    - 25
+    - 50

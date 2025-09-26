@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: report-aggregator
+  namespace: retail
+spec:
+  replicas: 4
+  selector:
+    matchLabels: { app: report-aggregator }
+  strategy:
+    canary:
+      canaryService: report-aggregator-canary
+      stableService: report-aggregator-stable
+      trafficRouting:
+        istio:
+          virtualService: report-aggregator-vs
+          destinationRule: report-aggregator-dr
+      steps:
+        - setWeight: 5
+        - pause: { duration: 60 }
+        - setWeight: 25
+        - pause: { duration: 120 }
+        - setWeight: 50
+        - pause: { duration: 180 }
+  template:
+    metadata:
+      labels: { app: report-aggregator }
+    spec:
+      containers:
+        - name: report-aggregator
+          image: asia-docker.pkg.dev/PROJECT/nusmart/repo/report-aggregator:REPLACEME_SHA
+          ports: [{ containerPort: 8080, name: http }]
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "500m",  memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-aggregator-stable
+  namespace: retail
+spec:
+  selector: { app: report-aggregator }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-aggregator-canary
+  namespace: retail
+spec:
+  selector: { rollouts-pod-template-hash: canary }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]

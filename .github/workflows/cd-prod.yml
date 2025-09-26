@@ -1,0 +1,83 @@
+name: cd-prod
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Image SHA"
+        required: false
+  push:
+    branches: [ "main" ]
+    paths: [ "k8s/**", "charts/**", ".github/workflows/cd-prod.yml" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with: { version: v1.29.0 }
+      - name: Install kubectl-argo-rollouts
+        run: |
+          curl -sL https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64 -o /usr/local/bin/kubectl-argo-rollouts
+          chmod +x /usr/local/bin/kubectl-argo-rollouts
+      - name: Auth GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_JSON }}
+      - name: Bandung
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: nusmart-bdg
+          location: asia-southeast2-a
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+      - name: Apply BDG base & services
+        run: |
+          kubectl apply -f k8s/namespaces/retail.yaml
+          kubectl apply -f k8s/gateways/istio-gw.yaml
+          kubectl apply -f k8s/policies/
+          for svc in order payment notifications catalog search-suggestion report-aggregator content-service; do
+            kubectl apply -f k8s/destinationrules/$svc-dr.yaml
+            kubectl apply -f k8s/virtualservices/$svc-vs.yaml
+            helm upgrade --install $svc charts/$svc -n retail -f charts/$svc/values-bdg.yaml               --set image.repository=${{ secrets.ARTIFACT_REPO }}/$svc               --set image.tag=${{ github.event.inputs.sha || github.sha }}
+            kubectl apply -f k8s/rollouts/$svc-rollout.yaml
+          done
+          kubectl apply -f k8s/keda/ || true
+          ./scripts/canary_wait.sh retail order 50 10m
+      - name: Surabaya
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: nusmart-sby
+          location: asia-southeast2-b
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+      - name: Apply SBY base & services
+        run: |
+          kubectl apply -f k8s/namespaces/retail.yaml
+          kubectl apply -f k8s/gateways/istio-gw.yaml
+          kubectl apply -f k8s/policies/
+          for svc in order payment notifications catalog search-suggestion report-aggregator content-service; do
+            kubectl apply -f k8s/destinationrules/$svc-dr.yaml
+            kubectl apply -f k8s/virtualservices/$svc-vs.yaml
+            helm upgrade --install $svc charts/$svc -n retail -f charts/$svc/values-sby.yaml               --set image.repository=${{ secrets.ARTIFACT_REPO }}/$svc               --set image.tag=${{ github.event.inputs.sha || github.sha }}
+            kubectl apply -f k8s/rollouts/$svc-rollout.yaml
+          done
+          kubectl apply -f k8s/keda/ || true
+          ./scripts/canary_wait.sh retail order 50 10m
+      - name: Jakarta
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: nusmart-jkt
+          location: asia-southeast2
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+      - name: Apply JKT base & services
+        run: |
+          kubectl apply -f k8s/namespaces/retail.yaml
+          kubectl apply -f k8s/gateways/istio-gw.yaml
+          kubectl apply -f k8s/policies/
+          for svc in order payment notifications catalog search-suggestion report-aggregator content-service; do
+            kubectl apply -f k8s/destinationrules/$svc-dr.yaml
+            kubectl apply -f k8s/virtualservices/$svc-vs.yaml
+            helm upgrade --install $svc charts/$svc -n retail -f charts/$svc/values-jkt.yaml               --set image.repository=${{ secrets.ARTIFACT_REPO }}/$svc               --set image.tag=${{ github.event.inputs.sha || github.sha }}
+            kubectl apply -f k8s/rollouts/$svc-rollout.yaml
+          done
+          kubectl apply -f k8s/keda/ || true
+          ./scripts/canary_wait.sh retail order 100 15m

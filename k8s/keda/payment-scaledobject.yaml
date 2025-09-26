@@ -1,0 +1,19 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: payment-rps
+  namespace: retail
+spec:
+  scaleTargetRef:
+    kind: Rollout
+    name: payment
+  minReplicaCount: 2
+  maxReplicaCount: 30
+  cooldownPeriod: 90
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-server.prometheus.svc.cluster.local:80
+        metricName: payment_rps
+        query: sum(rate(istio_requests_total{destination_workload="payment"}[1m]))
+        threshold: "50"   # target ~50 RPS total to scale above min

@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: notifications-vs
+  namespace: retail
+spec:
+  hosts: ["notifications.api.nusmart.id"]
+  gateways: ["istio-system/public-gw"]
+  http:
+    - route:
+        - destination: { host: notifications, subset: stable }
+          weight: 100
+        - destination: { host: notifications, subset: canary }
+          weight: 0
+      retries: { attempts: 3, perTryTimeout: 1s, retryOn: 5xx,connect-failure,reset,refused-stream }
+      timeout: 5s

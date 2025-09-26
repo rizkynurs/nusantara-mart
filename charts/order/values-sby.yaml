@@ -1,0 +1,15 @@
+# Overrides for cluster SBY
+image:
+  repository: asia-docker.pkg.dev/PROJECT/nusmart/repo/order
+  tag: "REPLACEME_SHA"
+
+resources:
+  requests: { cpu: "500m", memory: "512Mi" }
+  limits:   { cpu: "1500m", memory: "2Gi" }
+
+# Example weight hints for canary (consumed by Rollouts via params/annotations if needed)
+rollout:
+  canarySteps:
+    - 5
+    - 25
+    - 50

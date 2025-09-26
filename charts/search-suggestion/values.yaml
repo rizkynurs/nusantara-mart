@@ -1,0 +1,12 @@
+image:
+  repository: asia-docker.pkg.dev/PROJECT/nusmart/repo/search-suggestion
+  tag: "REPLACEME_SHA"
+
+service:
+  name: search-suggestion
+  port: 80
+  targetPort: 8080
+
+resources:
+  requests: { cpu: "100m", memory: "256Mi" }
+  limits:   { cpu: "400m", memory: "512Mi" }

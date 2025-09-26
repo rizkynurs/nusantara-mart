@@ -1,0 +1,12 @@
+image:
+  repository: asia-docker.pkg.dev/PROJECT/nusmart/repo/catalog
+  tag: "REPLACEME_SHA"
+
+service:
+  name: catalog
+  port: 80
+  targetPort: 8080
+
+resources:
+  requests: { cpu: "100m", memory: "256Mi" }
+  limits:   { cpu: "400m", memory: "512Mi" }

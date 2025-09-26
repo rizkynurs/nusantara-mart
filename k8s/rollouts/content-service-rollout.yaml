@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: content-service
+  namespace: retail
+spec:
+  replicas: 4
+  selector:
+    matchLabels: { app: content-service }
+  strategy:
+    canary:
+      canaryService: content-service-canary
+      stableService: content-service-stable
+      trafficRouting:
+        istio:
+          virtualService: content-service-vs
+          destinationRule: content-service-dr
+      steps:
+        - setWeight: 5
+        - pause: { duration: 60 }
+        - setWeight: 25
+        - pause: { duration: 120 }
+        - setWeight: 50
+        - pause: { duration: 180 }
+  template:
+    metadata:
+      labels: { app: content-service }
+    spec:
+      containers:
+        - name: content-service
+          image: asia-docker.pkg.dev/PROJECT/nusmart/repo/content-service:REPLACEME_SHA
+          ports: [{ containerPort: 8080, name: http }]
+          resources:
+            requests: { cpu: "50m", memory: "128Mi" }
+            limits:   { cpu: "200m",  memory: "256Mi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: content-service-stable
+  namespace: retail
+spec:
+  selector: { app: content-service }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: content-service-canary
+  namespace: retail
+spec:
+  selector: { rollouts-pod-template-hash: canary }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]

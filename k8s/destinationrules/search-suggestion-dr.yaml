@@ -1,0 +1,15 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: search-suggestion-dr
+  namespace: retail
+spec:
+  host: search-suggestion
+  trafficPolicy:
+    tls: { mode: ISTIO_MUTUAL }
+    outlierDetection: { consecutive5xxErrors: 5, interval: 5s, baseEjectionTime: 30s }
+  subsets:
+    - name: stable
+      labels: { app: search-suggestion }
+    - name: canary
+      labels: { rollouts-pod-template-hash: canary }

@@ -1,0 +1,14 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-payment-from-order
+  namespace: retail
+spec:
+  podSelector:
+    matchLabels: { app: payment }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: order }
+      ports: [{ port: 8080, protocol: TCP }]

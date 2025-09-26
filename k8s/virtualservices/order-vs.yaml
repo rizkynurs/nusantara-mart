@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: order-vs
+  namespace: retail
+spec:
+  hosts: ["order.api.nusmart.id"]
+  gateways: ["istio-system/public-gw"]
+  http:
+    - route:
+        - destination: { host: order, subset: stable }
+          weight: 100
+        - destination: { host: order, subset: canary }
+          weight: 0
+      retries: { attempts: 3, perTryTimeout: 1s, retryOn: 5xx,connect-failure,reset,refused-stream }
+      timeout: 5s
